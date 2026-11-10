@@ -21,12 +21,12 @@ def is_youtube(url):
     domain = parsed.netloc.lower()
     return any(yt in domain for yt in ["youtube.com", "youtu.be", "music.youtube.com"])
 
-def handle_youtube(url, default_quality=False):
+def handle_youtube(url, batch_music_choice=None, batch_video_choice=None):
     is_music = "music.youtube.com" in url
 
     if is_music:
-        if default_quality:
-            bitrate = "320"
+        if batch_music_choice:
+            choice = batch_music_choice
         else:
             print(f"\n[+] Terdeteksi YT Music: {url}")
             print("Pilihan Bitrate MP3:")
@@ -35,8 +35,9 @@ def handle_youtube(url, default_quality=False):
             print("3. 192 kbps")
             print("4. 128 kbps (Hemat Ukuran)")
             choice = input("Pilih [1-4] (default 1): ").strip()
-            bitrate_map = {"1": "320", "2": "256", "3": "192", "4": "128"}
-            bitrate = bitrate_map.get(choice, "320")
+
+        bitrate_map = {"1": "320", "2": "256", "3": "192", "4": "128"}
+        bitrate = bitrate_map.get(choice, "320")
 
         return [
             "yt-dlp",
@@ -50,8 +51,8 @@ def handle_youtube(url, default_quality=False):
             url
         ]
     else:
-        if default_quality:
-            choice = "2" # Default 720p untuk batch download
+        if batch_video_choice:
+            choice = batch_video_choice
         else:
             print(f"\n[+] Terdeteksi YouTube Video: {url}")
             print("Pilihan Download:")
@@ -99,9 +100,9 @@ def handle_direct_file(url):
         url
     ]
 
-def process_download(url, default_quality=False):
+def process_download(url, batch_music_choice=None, batch_video_choice=None):
     if is_youtube(url):
-        cmd = handle_youtube(url, default_quality)
+        cmd = handle_youtube(url, batch_music_choice, batch_video_choice)
     else:
         cmd = handle_direct_file(url)
 
@@ -123,19 +124,19 @@ def main():
         print(f"[*] Lokasi Simpan: {DOWNLOAD_DIR}\n")
         print("PILIH MODE:")
         print("1. Download Single Link (Pengulangan Otomatis)")
-        print("2. Download Batch Multi-Link (Tempel banyak link)")
+        print("2. Download Batch Multi-Link (Tempel Banyak Link)")
         print("0. Keluar")
         
         mode = input("\nPilihan Mode [1/2/0]: ").strip()
 
-        if mode == "0" or mode.lower() in ["exit", "q"]:
+        if mode in ["0", "exit", "q"]:
             print("\nTerima kasih telah menggunakan Silentrix!")
             break
 
         elif mode == "2":
             print("\n--- MODE BATCH MULTI-LINK ---")
-            print("Tempel link satu per satu (Enter setiap link).")
-            print("Tekan ENTER sekali lagi (baris kosong) jika selesai untuk mulai download.")
+            print("Tempel link satu per satu (tekan Enter setiap tempel link).")
+            print("Tekan ENTER sekali lagi pada baris kosong jika sudah selesai.")
             print("--------------------------------------------------")
             
             links = []
@@ -150,14 +151,44 @@ def main():
                 input("\nTekan Enter untuk kembali ke menu...")
                 continue
 
-            print(f"\n[+] Memulai download {len(links)} file secara otomatis...\n")
+            # Analisis jenis link yang ada di antrean
+            has_music = any(is_youtube(u) and "music.youtube.com" in u for u in links)
+            has_video = any(is_youtube(u) and "music.youtube.com" not in u for u in links)
+
+            batch_music_choice = None
+            batch_video_choice = None
+
+            # Opsi Kualitas Musik (sekali pilih untuk semua musik)
+            if has_music:
+                print("\n==================================================")
+                print("[+] Terdeteksi LINK MUSIC di dalam antrean!")
+                print("Pilih Kualitas Bitrate MP3 untuk SEMUA lagu:")
+                print("1. 320 kbps (Suara Paling Jernih)")
+                print("2. 256 kbps")
+                print("3. 192 kbps")
+                print("4. 128 kbps (Hemat Ukuran)")
+                batch_music_choice = input("Pilih [1-4] (default 1): ").strip() or "1"
+
+            # Opsi Kualitas Video (sekali pilih untuk semua video)
+            if has_video:
+                print("\n==================================================")
+                print("[+] Terdeteksi LINK VIDEO YOUTUBE di dalam antrean!")
+                print("Pilih Kualitas Video untuk SEMUA video:")
+                print("1. Video 1080p (Full HD)")
+                print("2. Video 720p (HD)")
+                print("3. Video 480p")
+                print("4. Video 360p")
+                print("5. Ekstrak Audio Saja (MP3 320kbps)")
+                batch_video_choice = input("Pilih [1-5] (default 2): ").strip() or "2"
+
+            print(f"\n[+] Memulai proses download untuk {len(links)} item...\n")
             for idx, item in enumerate(links, 1):
-                print(f"--- Processing [{idx}/{len(links)}] ---")
-                process_download(item, default_quality=True)
+                print(f"=== Downloading [{idx}/{len(links)}] ===")
+                process_download(item, batch_music_choice, batch_video_choice)
             
             input("Semua antrean batch selesai! Tekan Enter untuk kembali ke menu...")
 
-        else: # Default ke Mode 1 (Single Link Loop)
+        else: # Mode 1 (Single Link Loop)
             while True:
                 print("\n--------------------------------------------------")
                 url = input("Tempel Link (atau ketik 'q' untuk ke Menu Utama): ").strip()
@@ -167,7 +198,7 @@ def main():
                 if not url:
                     continue
 
-                process_download(url, default_quality=False)
+                process_download(url)
 
 if __name__ == "__main__":
     try:
